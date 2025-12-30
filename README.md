@@ -33,6 +33,15 @@ git checkout -b protect-published
 git commit -am "Protect published articles from purge"
 ```
 
+* long term maintenance
+```bash
+git remote add upstream https://github.com/tt-rss/tt-rss.git
+git fetch upstream
+git checkout protect-published
+git rebase upstream/master
+
+```
+
 create dockerfile at level of ttrss docker compose `Dockerfile.ttrss`
 ```Dockerfile
 FROM ghcr.io/tt-rss/tt-rss:latest
