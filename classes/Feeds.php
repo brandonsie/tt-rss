@@ -2030,6 +2030,7 @@ class Feeds extends Handler_Protected {
 				USING ttrss_entries
 				WHERE ttrss_entries.id = ref_id AND
 				marked = false AND
+				published = false AND
 				feed_id = ? AND
 				$query_limit
 				ttrss_entries.date_updated < NOW() - INTERVAL '$purge_interval days'");

@@ -3,6 +3,137 @@ Tiny Tiny RSS (tt-rss)
 
 Tiny Tiny RSS (tt-rss) is a free, flexible, open-source, web-based news feed (RSS/Atom/other) reader and aggregator.
 
+## About this fork
+* this is my personal fork of tt-rss/tt-rss. The functional change is that published articles are protected from purge (equivalent to how starred articles are not subject to purge). I want this behavior becuase I use star and publish to mark articles as interesting/uninteristing and use this data to train a model that scores interestingness of future articles.
+
+steps taken to create this fork from original
+* clone the source: 
+```bash
+git clone https://github.com/tt-rss/tt-rss.git
+cd tt-rss
+git checkout main
+```
+* make changes to the purge function. for me this was in. add a protection for published articles
+classes/Feeds.php
+```php
+			$sth = $pdo->prepare("DELETE FROM ttrss_user_entries
+				USING ttrss_entries
+				WHERE ttrss_entries.id = ref_id AND
+				marked = false AND
+				published = false AND
+				feed_id = ? AND
+				$query_limit
+				ttrss_entries.date_updated < NOW() - INTERVAL '$purge_interval days'");
+			$sth->execute([$feed_id]);
+```
+
+* create a feature branch
+```bash
+git checkout -b protect-published
+git commit -am "Protect published articles from purge"
+```
+
+create dockerfile at level of ttrss docker compose `Dockerfile.ttrss`
+```Dockerfile
+FROM ghcr.io/tt-rss/tt-rss:latest
+
+# Replace upstream source with your fork
+RUN rm -rf /var/www/html/tt-rss
+
+RUN git clone https://github.com/brandonsie/tt-rss.git /var/www/html/tt-rss && \
+    cd /var/www/html/tt-rss && \
+    git checkout protect-publishedh
+```
+
+update logic for handling published articles
+
+update docker compose
+```yaml
+services:
+  ttrss:
+    build:
+      context: .
+      dockerfile: Dockerfile.tt-rss
+    image: ttrss-protect-published
+    container_name: ttrss
+    depends_on:
+      - db
+    volumes:
+      - ttrss-data:/var/www/html/tt-rss
+    env_file:
+      - .env
+```
+(!) remove volume mount for var/www/html/tt-rss
+
+
+build and run
+```bash
+docker compose build ttrss
+docker compose up -d
+```
+
+
+
+* apply changes and commit to separate branch
+```bash
+git checkout -b protect-published
+# edit classes/Feeds.php and update.php
+git commit -am "Protect published articles from purge"
+```
+* generate a patch
+```bash
+git format-patch -1 HEAD --stdout > protect-published.patch
+```
+
+using the patch 
+* create Dockerfile.ttrss
+```Dockerfile
+FROM ghcr.io/tt-rss/tt-rss:latest
+
+# Copy the patch into the image
+COPY protect-published.patch /tmp/
+
+# Apply the patch
+RUN cd /var/www/html/tt-rss \
+ && patch -p1 < /tmp/protect-published.patch
+```
+update docker compose 
+```yml
+services:
+  ttrss:
+    build:
+      context: .
+      dockerfile: Dockerfile.ttrss
+    image: ttrss-protect-published
+    depends_on:
+      - db
+    volumes:
+      - ttrss-config:/opt/tt-rss/config
+      - ttrss-cache:/opt/tt-rss/cache
+      - ttrss-plugins:/var/www/html/tt-rss/plugins
+      - ttrss-themes:/var/www/html/tt-rss/themes
+    env_file:
+      - .env
+
+```
+
+sanity check
+```bash
+docker compose exec ttrss \
+  grep published /var/www/html/tt-rss/classes/Feeds.php
+
+
+# should see ttrss_user_entries.published = false
+```
+
+later, to update
+```
+docker compose pull
+docker compose build --no-cache ttrss
+docker compose up -d
+```
+
+
 ## Getting started
 
 Please refer to [the installation guide](https://tt-rss.org/docs/Installation-Guide.html).
