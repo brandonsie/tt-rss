@@ -38,7 +38,7 @@ git commit -am "Protect published articles from purge"
 git remote add upstream https://github.com/tt-rss/tt-rss.git
 git fetch upstream
 git checkout protect-published
-git rebase upstream/master
+git rebase upstream/main
 
 ```
 
