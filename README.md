@@ -56,11 +56,18 @@ RUN rm -rf tt-rss \
  && cd tt-rss \
  && git checkout protect-published
 ```
-
+move local plugins and htemes to /opt/
+create config.d/10-local.php
+```php
+<?php
+define('PLUGINS_LOCAL', '/opt/tt-rss/plugins.local');
+define('THEMES_LOCAL',  '/opt/tt-rss/themes.local');
+```
 
 rebuild
 ```bash
 docker compose down
+docker volume rm ttrss_html # remove old volume
 docker compose build --no-cache
 docker compose up -d
 ```
@@ -68,8 +75,7 @@ docker compose up -d
 
 sanity check
 ```bash
-docker compose exec ttrss \
-  grep published /var/www/html/tt-rss/classes/Feeds.php
+docker compose exec app   grep "marked = false" /var/www/html/tt-rss/classes/Feeds.php -A 5 -B 5
 
 
 # should see ttrss_user_entries.published = false
