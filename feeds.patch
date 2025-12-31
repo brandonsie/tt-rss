@@ -1,0 +1,109 @@
+diff --git a/README.md b/README.md
+index f3b3ecb7a..7c7b23522 100644
+--- a/README.md
++++ b/README.md
+@@ -3,6 +3,92 @@ Tiny Tiny RSS (tt-rss)
+ 
+ Tiny Tiny RSS (tt-rss) is a free, flexible, open-source, web-based news feed (RSS/Atom/other) reader and aggregator.
+ 
++## About this fork
++* this is my personal fork of tt-rss/tt-rss. The functional change is that published articles are protected from purge (equivalent to how starred articles are not subject to purge). I want this behavior becuase I use star and publish to mark articles as interesting/uninteristing and use this data to train a model that scores interestingness of future articles.
++
++steps taken to create this fork from original
++* clone the source: 
++```bash
++git clone https://github.com/tt-rss/tt-rss.git
++cd tt-rss
++git checkout main
++```
++* make changes to the purge function. for me this was in. add a protection for published articles
++classes/Feeds.php
++```php
++			$sth = $pdo->prepare("DELETE FROM ttrss_user_entries
++				USING ttrss_entries
++				WHERE ttrss_entries.id = ref_id AND
++				marked = false AND
++				published = false AND
++				feed_id = ? AND
++				$query_limit
++				ttrss_entries.date_updated < NOW() - INTERVAL '$purge_interval days'");
++			$sth->execute([$feed_id]);
++```
++
++* create a feature branch
++```bash
++git checkout -b protect-published
++git commit -am "Protect published articles from purge"
++```
++
++* long term maintenance
++```bash
++git remote add upstream https://github.com/tt-rss/tt-rss.git
++git fetch upstream
++git checkout protect-published
++git rebase upstream/main
++
++```
++
++create dockerfile at level of ttrss docker compose `Dockerfile.ttrss`
++new
++```Dockerfile
++FROM ghcr.io/tt-rss/tt-rss:latest
++
++RUN apk add --no-cache git
++
++WORKDIR /var/www/html
++
++RUN rm -rf tt-rss \
++ && git clone https://github.com/brandonsie/tt-rss.git tt-rss \
++ && cd tt-rss \
++ && git checkout protect-published
++```
++move local plugins and htemes to /opt/
++create config.d/10-local.php
++```php
++<?php
++define('PLUGINS_LOCAL', '/opt/tt-rss/plugins.local');
++define('THEMES_LOCAL',  '/opt/tt-rss/themes.local');
++```
++
++rebuild
++```bash
++docker compose down
++docker volume rm ttrss_html # remove old volume
++docker compose build --no-cache
++docker compose up -d
++```
++
++
++sanity check
++```bash
++docker compose exec app   grep "marked = false" /var/www/html/tt-rss/classes/Feeds.php -A 5 -B 5
++
++
++# should see ttrss_user_entries.published = false
++```
++
++later, to update
++```
++docker compose pull
++docker compose build --no-cache ttrss
++docker compose up -d
++```
++
++
+ ## Getting started
+ 
+ Please refer to [the installation guide](https://tt-rss.org/docs/Installation-Guide.html).
+diff --git a/classes/Feeds.php b/classes/Feeds.php
+index 7c7b123b7..761ed38c7 100644
+--- a/classes/Feeds.php
++++ b/classes/Feeds.php
+@@ -2030,6 +2030,7 @@ class Feeds extends Handler_Protected {
+ 				USING ttrss_entries
+ 				WHERE ttrss_entries.id = ref_id AND
+ 				marked = false AND
++				published = false AND
+ 				feed_id = ? AND
+ 				$query_limit
+ 				ttrss_entries.date_updated < NOW() - INTERVAL '$purge_interval days'");

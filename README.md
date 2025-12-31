@@ -40,6 +40,15 @@ git fetch upstream
 git checkout protect-published
 git rebase upstream/main
 
+
+git diff upstream/main..HEAD
+# only changes to readme and feeds.php
+
+# create patch
+git diff upstream/main..HEAD > feeds.patch
+
+# check patch validitiy
+git apply --check feeds.patch
 ```
 
 create dockerfile at level of ttrss docker compose `Dockerfile.ttrss`
