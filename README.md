@@ -47,24 +47,20 @@ git diff upstream/main..HEAD
 # create patch
 git diff upstream/main..HEAD > feeds.patch
 
-# check patch validitiy
+# check patch validitiy # need to be in a separate directory
 git apply --check feeds.patch
 ```
 
-create dockerfile at level of ttrss docker compose `Dockerfile.ttrss`
-new
+create dockerfile at level of ttrss docker compose 
 ```Dockerfile
 FROM ghcr.io/tt-rss/tt-rss:latest
-
-RUN apk add --no-cache git
-
-WORKDIR /var/www/html
-
-RUN rm -rf tt-rss \
- && git clone https://github.com/brandonsie/tt-rss.git tt-rss \
- && cd tt-rss \
- && git checkout protect-published
+COPY feeds.patch /tmp/feeds.patch
+RUN apk add --no-cache patch
+WORKDIR /src/tt-rss
+RUN ls -l .
+RUN patch -p1 < /tmp/feeds.patch
 ```
+
 move local plugins and htemes to /opt/
 create config.d/10-local.php
 ```php
