@@ -43,88 +43,28 @@ git rebase upstream/master
 ```
 
 create dockerfile at level of ttrss docker compose `Dockerfile.ttrss`
+new
 ```Dockerfile
 FROM ghcr.io/tt-rss/tt-rss:latest
 
-# Replace upstream source with your fork
-RUN rm -rf /var/www/html/tt-rss
+RUN apk add --no-cache git
 
-RUN git clone https://github.com/brandonsie/tt-rss.git /var/www/html/tt-rss && \
-    cd /var/www/html/tt-rss && \
-    git checkout protect-publishedh
+WORKDIR /var/www/html
+
+RUN rm -rf tt-rss \
+ && git clone https://github.com/brandonsie/tt-rss.git tt-rss \
+ && cd tt-rss \
+ && git checkout protect-published
 ```
 
-update logic for handling published articles
 
-update docker compose
-```yaml
-services:
-  ttrss:
-    build:
-      context: .
-      dockerfile: Dockerfile.tt-rss
-    image: ttrss-protect-published
-    container_name: ttrss
-    depends_on:
-      - db
-    volumes:
-      - ttrss-data:/var/www/html/tt-rss
-    env_file:
-      - .env
-```
-(!) remove volume mount for var/www/html/tt-rss
-
-
-build and run
+rebuild
 ```bash
-docker compose build ttrss
+docker compose down
+docker compose build --no-cache
 docker compose up -d
 ```
 
-
-
-* apply changes and commit to separate branch
-```bash
-git checkout -b protect-published
-# edit classes/Feeds.php and update.php
-git commit -am "Protect published articles from purge"
-```
-* generate a patch
-```bash
-git format-patch -1 HEAD --stdout > protect-published.patch
-```
-
-using the patch 
-* create Dockerfile.ttrss
-```Dockerfile
-FROM ghcr.io/tt-rss/tt-rss:latest
-
-# Copy the patch into the image
-COPY protect-published.patch /tmp/
-
-# Apply the patch
-RUN cd /var/www/html/tt-rss \
- && patch -p1 < /tmp/protect-published.patch
-```
-update docker compose 
-```yml
-services:
-  ttrss:
-    build:
-      context: .
-      dockerfile: Dockerfile.ttrss
-    image: ttrss-protect-published
-    depends_on:
-      - db
-    volumes:
-      - ttrss-config:/opt/tt-rss/config
-      - ttrss-cache:/opt/tt-rss/cache
-      - ttrss-plugins:/var/www/html/tt-rss/plugins
-      - ttrss-themes:/var/www/html/tt-rss/themes
-    env_file:
-      - .env
-
-```
 
 sanity check
 ```bash
